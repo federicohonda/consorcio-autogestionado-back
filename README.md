@@ -230,17 +230,26 @@ No hay herramienta externa de migraciones (ni Alembic ni Supabase CLI) — el pr
 
 ### Deployar cambios nuevos
 
-Railway redeploya automáticamente con cada push a la rama conectada:
+Railway está conectado al repositorio de GitHub. Cada push a la rama principal dispara un redeploy automático: Railway reconstruye la imagen Docker, reemplaza el contenedor y ejecuta las migraciones automáticamente al iniciar.
 
-```bash
-git add .
-git commit -m "descripción del cambio"
-git push
-```
+> ⚠️ **Atención**: Railway tiene un período de prueba de 30 días. El proyecto fue creado el 17/04/2026, por lo que el vencimiento es aproximadamente el **17/05/2026**. Pasada esa fecha, el servicio se suspende y hay que migrar a un plan pago o a otra plataforma.
 
-Railway detecta el push, reconstruye la imagen Docker y reemplaza el contenedor. Las migraciones nuevas (si las hay) se ejecutan automáticamente al iniciar el nuevo contenedor.
+**Pasos:**
 
-> Si agregás una migración nueva, simplemente creá el archivo `.sql` en `supabase/migrations/` con un timestamp mayor al último. El sistema la ejecutará sola al deployar.
+1. Hacé los cambios en el código.
+
+2. Commiteá y pusheá:
+   ```bash
+   git add .
+   git commit -m "descripción del cambio"
+   git push
+   ```
+
+3. Abrí el dashboard de Railway → proyecto `consorcio-autogestionado-back` → pestaña **Deployments**.
+
+4. Vas a ver un nuevo deployment apareciendo con estado **Building**. Esperá a que pase a **Active** y diga **Deployment successful**.
+
+5. Si agregaste una migración nueva (archivo `.sql` en `supabase/migrations/`), se ejecuta sola al arrancar el contenedor. Podés verificarlo en **View logs** del deployment.
 
 ---
 
