@@ -1,0 +1,43 @@
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: consorcio
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    ports:
+      - "8001:8000"
+    environment:
+      APP_NAME: consorcio-autogestionado-back
+      ENVIRONMENT: development
+      DEBUG: "true"
+      PORT: "8000"
+      DATABASE_URL: postgresql://postgres:password@db:5432/consorcio
+      JWT_SECRET: dev_secret_only_for_local
+      ACCESS_TOKEN_EXPIRE_MINUTES: "60"
+      REFRESH_TOKEN_EXPIRE_DAYS: "30"
+      SUPABASE_URL: ""
+      SUPABASE_KEY: ""
+      SUPABASE_SERVICE_KEY: ""
+    depends_on:
+      db:
+        condition: service_healthy
+
+networks:
+  default:
+    driver: bridge
+
+volumes:
+  postgres_data:
