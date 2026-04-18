@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from src.core.config import settings
+from src.database.db import check_connection
 
 router = APIRouter(tags=["health"])
 
@@ -11,5 +12,7 @@ def health():
 
 @router.get("/health/db")
 def health_db():
-    # TODO: implement real DB connectivity check once DB layer is set up
-    return {"status": "ok", "db": "not_checked"}
+    connected = check_connection()
+    if not connected:
+        return {"status": "error", "db": "unreachable"}
+    return {"status": "ok", "db": "connected"}
