@@ -1,0 +1,5 @@
+ALTER TABLE group_members 
+ADD COLUMN IF NOT EXISTS m2 INTEGER DEFAULT 0;
+
+ALTER TABLE group_members 
+DROP COLUMN IF EXISTS coefficient;
