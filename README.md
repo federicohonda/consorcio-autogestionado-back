@@ -14,7 +14,7 @@ Backend de la aplicación **Consorcio Autogestionado** (GDSI TP4). API REST desa
 | psycopg2-binary | Driver PostgreSQL (SQL puro, sin ORM) |
 | python-jose | Generación y validación de JWT |
 | bcrypt | Hash de contraseñas (directo, sin passlib) |
-| Pydantic v2 | Schemas de request/response con alias camelCase |
+| Pydantic v2 / Dataclasses | Schemas de request/response y modelos de BD |
 | Loguru | Logging |
 | Docker + Docker Compose | Contenedores local y producción |
 | Supabase | PostgreSQL en producción |
@@ -196,8 +196,17 @@ No hay herramienta externa de migraciones (ni Alembic ni Supabase CLI) — el pr
 
 ---
 
-## Decisiones de diseño relevantes
+## Decisiones de diseño y Reglas de Negocio
 
+El desarrollo del backend se guió por las siguientes definiciones técnicas y acuerdos del equipo respecto al dominio del consorcio:
+
+### Reglas de Negocio (Core)
+- **Corte de Deuda por Fecha (Static Splits):** Cuando se registra un gasto, la división de la deuda se calcula y se "congela" con la foto de los miembros activos en ese exacto momento. Si un nuevo usuario se une al consorcio al día siguiente, no hereda deudas de gastos pasados ni se recalculan los montos anteriores.
+- **Metraje Dinámico (M2):** El tamaño total del edificio no es un valor fijo (hardcodeado). Se calcula dinámicamente sumando los M2 de todas las unidades registradas. Al ingresar un nuevo residente, su metraje se suma al total y reconfigura automáticamente las proporciones (%) de todo el edificio para los *futuros* gastos.
+- **Privacidad y Acceso por Código (Invite Code):** Por seguridad, no existe un directorio público de consorcios. Para ingresar a uno, el usuario debe introducir un Código de Invitación único generado por el sistema, el cual solo puede ser visualizado y compartido por el Administrador del edificio.
+- **Asignación Orgánica del Rol Administrador:** No existen cuentas globales de tipo "Administrador". Todo registro genera un usuario estándar. El rol de Administrador de un consorcio se asigna automáticamente al usuario que crea dicho grupo. Posteriormente, este usuario tiene la potestad de ceder el rol a otro miembro.
+
+### Decisiones Técnicas
 - **Sin ORM**: todas las queries son SQL puro con psycopg2 y `RealDictCursor`. Permite control total sobre las queries y no introduce magia implícita.
 - **bcrypt directo**: `passlib` fue removido por incompatibilidad con `bcrypt>=4.x`. Se usa `bcrypt.hashpw` / `bcrypt.checkpw` directamente.
 - **Pydantic v2 con alias**: los schemas usan `model_config = ConfigDict(populate_by_name=True)` y campos con `alias` camelCase para la API pública, manteniendo snake_case internamente.
@@ -268,6 +277,9 @@ Railway está conectado al repositorio de GitHub. Cada push a la rama principal 
 | HU-11 | Gestión de gastos | División del gasto en partes iguales — repartir el gasto entre todos los integrantes | `expense_service.py` divide `amount / len(members)` y crea `expense_splits` |
 | HU-18 | Balance y reportes | Balance mensual individual — cuánto gasté, cuánto me corresponde y mi diferencia final | `your_balance = you_paid - your_share` en summary |
 | HU-22 | Balance y reportes | Claridad visual del saldo y las diferencias — visualización clara de cuánto debo o cobro | Balance devuelto con signo: positivo = recupera, negativo = debe |
+| HU-08 | Gestión de gastos | Selección de categoría del gasto para ordenar los movimientos |
+| HU-13 | Gestión de gastos | Adjuntar comprobante o imagen al registrar un gasto* |
+| HU-12 | Gestión de gastos | División proporcional del gasto (no en partes iguales) |
 
 ### Funcionalidades extra implementadas (fuera del backlog)
 
@@ -281,6 +293,10 @@ Railway está conectado al repositorio de GitHub. Cada push a la rama principal 
 | Salir de un grupo | `POST /groups/{id}/leave` bloqueado si el balance histórico del usuario es negativo |
 | Refresh token automático | `POST /auth/refresh`; el frontend lo invoca automáticamente mediante interceptor Axios |
 | Migraciones automáticas | `src/database/migrate.py` ejecuta los `.sql` de `supabase/migrations/` al iniciar el contenedor, sin CLI externo |
+| Multi-pagador UI/UX | Permite registrar si un gasto fue costeado entre 2 o más vecinos |
+| Códigos de Invitación | Capa de privacidad para que extraños no entren al edificio |
+| Metros Cuadrados (M2) | Registro persistente de tamaño de unidad al unirse a un grupo |
+| Etiquetado dinámico | El SQL genera strings amigables ("Camila y 2 más") automáticamente |
 
 ### Pendientes
 
@@ -289,13 +305,10 @@ Railway está conectado al repositorio de GitHub. Cada push a la rama principal 
 | HU-01 | Ingreso y contexto del grupo | Selección del tipo de grupo al ingresar para adaptar la experiencia al contexto del consorcio |
 | HU-04 | Pantalla principal | Accesos rápidos a acciones clave: cargar gasto, pagar, ver balance y reportes |
 | HU-05 | Pantalla principal | Visualización de alertas relevantes sobre deuda o mora |
-| HU-08 | Gestión de gastos | Selección de categoría del gasto para ordenar los movimientos |
-| HU-12 | Gestión de gastos | División proporcional del gasto (no en partes iguales) |
-| HU-13 | Gestión de gastos | Adjuntar comprobante o imagen al registrar un gasto |
 | HU-14 | Gestión de gastos | Registrar gastos recurrentes para no cargarlos manualmente cada mes |
-| HU-15 | Gestión de gastos | Registro de pago de expensas o saldo para actualizar deuda pendiente |
-| HU-16 | Gestión de gastos | Adjuntar comprobante al pago |
-| HU-17 | Gestión de gastos | Pago a un fondo común centralizado |
+| HU-15 | Gestión de pagos | Registro de pago de expensas o saldo para actualizar deuda pendiente |
+| HU-16 | Gestión de pagos | Adjuntar comprobante al pago |
+| HU-17 | Gestión de pagos | Pago a un fondo común centralizado |
 | HU-19 | Balance y reportes | Balance general de todos los socios — quién debe y quién cobra |
 | HU-20 | Balance y reportes | Reporte de estado de cuentas del período |
 | HU-21 | Balance y reportes | Detalle de gastos dentro del reporte de estado de cuentas |
