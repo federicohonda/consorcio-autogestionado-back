@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from typing import Optional
-
 
 @dataclass
 class Group:
@@ -11,7 +11,7 @@ class Group:
     icon: str
     created_at: datetime
     updated_at: datetime
-
+    invite_code: Optional[str] = None
 
 @dataclass
 class GroupMember:
@@ -20,7 +20,7 @@ class GroupMember:
     user_id: int
     role: str
     joined_at: datetime
-
+    m2: int = 0
 
 @dataclass
 class GroupWithMeta:
@@ -31,3 +31,4 @@ class GroupWithMeta:
     member_count: int
     admin_name: Optional[str]
     created_at: datetime
+    invite_code: Optional[str] = None

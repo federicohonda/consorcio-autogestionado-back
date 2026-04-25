@@ -1,14 +1,24 @@
 from typing import Optional
+import secrets
+import string
 from src.database.db import get_db_cursor
 from src.models.group import Group, GroupMember, GroupWithMeta
 from src.schemas.group import MemberResponse
 
 
+def generate_invite_code(length: int = 6) -> str:
+    alphabet = string.ascii_uppercase + string.digits
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
+
 def create_group(name: str, description: Optional[str], icon: str) -> Group:
+    invite_code = generate_invite_code()
     with get_db_cursor() as cur:
         cur.execute(
-            "INSERT INTO groups (name, description, icon) VALUES (%s, %s, %s) RETURNING *",
-            (name, description, icon),
+            """
+            INSERT INTO groups (name, description, icon, invite_code) 
+            VALUES (%s, %s, %s, %s) RETURNING *
+            """,
+            (name, description, icon, invite_code),
         )
         return Group(**dict(cur.fetchone()))
 
@@ -51,24 +61,29 @@ def find_by_id(group_id: int) -> Optional[Group]:
         return Group(**dict(row)) if row else None
 
 
-def add_member(group_id: int, user_id: int, role: str) -> GroupMember:
+def find_by_invite_code(code: str) -> Optional[Group]:
+    with get_db_cursor() as cur:
+        cur.execute("SELECT * FROM groups WHERE invite_code = %s", (code,))
+        row = cur.fetchone()
+        return Group(**dict(row)) if row else None
+
+
+def add_member(group_id: int, user_id: int, role: str, m2: int) -> None:
     with get_db_cursor() as cur:
         cur.execute(
             """
-            INSERT INTO group_members (group_id, user_id, role)
-            VALUES (%s, %s, %s)
-            RETURNING *
+            INSERT INTO group_members (group_id, user_id, role, m2) 
+            VALUES (%s, %s, %s, %s)
             """,
-            (group_id, user_id, role),
+            (group_id, user_id, role, m2)
         )
-        return GroupMember(**dict(cur.fetchone()))
 
 
 def get_members(group_id: int) -> list[MemberResponse]:
     with get_db_cursor() as cur:
         cur.execute(
             """
-            SELECT gm.user_id, u.full_name, gm.role, gm.joined_at
+            SELECT gm.user_id, u.full_name, gm.role, gm.joined_at, gm.m2
             FROM group_members gm
             JOIN users u ON u.id = gm.user_id
             WHERE gm.group_id = %s
@@ -77,6 +92,19 @@ def get_members(group_id: int) -> list[MemberResponse]:
             (group_id,),
         )
         return [MemberResponse(**dict(r)) for r in cur.fetchall()]
+
+
+def update_m2(group_id: int, m2_data: list[dict]) -> None:
+    with get_db_cursor() as cur:
+        for item in m2_data:
+            cur.execute(
+                """
+                UPDATE group_members 
+                SET m2 = %s 
+                WHERE group_id = %s AND user_id = %s
+                """,
+                (item["m2"], group_id, item["user_id"])
+            )
 
 
 def get_member(group_id: int, user_id: int) -> Optional[GroupMember]:
