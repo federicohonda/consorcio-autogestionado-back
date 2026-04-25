@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     supabase_key: str = ""
     supabase_service_key: str = ""
 
+    uploads_dir: str = "uploads"
+    max_receipt_size_bytes: int = 10 * 1024 * 1024  # 10 MB
+
     @property
     def is_supabase_configured(self) -> bool:
         return bool(self.supabase_url and self.supabase_service_key)

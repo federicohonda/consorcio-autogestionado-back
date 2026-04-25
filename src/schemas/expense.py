@@ -58,6 +58,7 @@ class ExpenseResponse(BaseModel):
     paid_by_user_id: Optional[int] # Lo cambiamos a Optional por V2
     created_at: datetime
     category: str = "Otros"
+    receipt_url: Optional[str] = None
 
 class MonthlySummaryResponse(BaseModel):
     year: int

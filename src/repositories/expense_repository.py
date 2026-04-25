@@ -9,9 +9,10 @@ def create_expense_with_splits_v2(
     created_by_user_id: int,
     data: CreateExpenseRequest,
     splits: list[dict],
+    receipt_url: Optional[str] = None,
 ) -> Expense:
     with get_db_cursor() as cur:
-        # 1. Insertar el gasto base
+        # 1. Insertar el gasto base (Nuestro motor V2 + El receipt_url de Thiago)
         cur.execute(
             """
             INSERT INTO expenses (
@@ -23,11 +24,12 @@ def create_expense_with_splits_v2(
             """,
             (
                 group_id, data.description, data.amount, data.category,
-                data.expense_date, data.division_type, data.receipt_url, created_by_user_id
+                data.expense_date, data.division_type, receipt_url, created_by_user_id
             ),
         )
         expense_row = dict(cur.fetchone())
-        # Como paid_by_user_id puede ser nulo ahora, lo manejamos
+        
+        # Como paid_by_user_id ya no está en la tabla base, lo manejamos para el modelo
         if 'paid_by_user_id' not in expense_row:
              expense_row['paid_by_user_id'] = None
              
@@ -51,11 +53,11 @@ def create_expense_with_splits_v2(
 
 def list_expenses(group_id: int, year: int, month: int) -> list[ExpenseWithPayer]:
     with get_db_cursor() as cur:
-        # Traemos el gasto y armamos dinámicamente la etiqueta de pagadores
+        # Traemos el gasto (agregamos e.receipt_url) y armamos dinámicamente la etiqueta de pagadores
         cur.execute(
             """
             SELECT
-                e.id, e.group_id, e.description, e.amount, e.category, e.created_at,
+                e.id, e.group_id, e.description, e.amount, e.category, e.created_at, e.receipt_url,
                 (SELECT user_id FROM expense_payments WHERE expense_id = e.id LIMIT 1) as paid_by_user_id,
                 (
                     SELECT CASE
