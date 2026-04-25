@@ -12,15 +12,16 @@ def create_expense_with_splits(
     paid_by_user_id: int,
     created_by_user_id: int,
     splits: list[dict],
+    receipt_url: Optional[str] = None,
 ) -> Expense:
     with get_db_cursor() as cur:
         cur.execute(
             """
-            INSERT INTO expenses (group_id, description, amount, paid_by_user_id, created_by_user_id)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO expenses (group_id, description, amount, paid_by_user_id, created_by_user_id, receipt_url)
+            VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING *
             """,
-            (group_id, description, amount, paid_by_user_id, created_by_user_id),
+            (group_id, description, amount, paid_by_user_id, created_by_user_id, receipt_url),
         )
         expense = Expense(**dict(cur.fetchone()))
 
@@ -41,7 +42,8 @@ def list_expenses(
             """
             SELECT
                 e.id, e.group_id, e.description, e.amount,
-                e.paid_by_user_id, u.full_name AS paid_by_name, e.created_at
+                e.paid_by_user_id, u.full_name AS paid_by_name,
+                e.created_at, e.receipt_url
             FROM expenses e
             JOIN users u ON u.id = e.paid_by_user_id
             WHERE e.group_id = %s

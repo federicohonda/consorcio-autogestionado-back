@@ -14,6 +14,7 @@ class Expense:
     created_by_user_id: int
     created_at: datetime
     updated_at: datetime
+    receipt_url: Optional[str] = None
 
 
 @dataclass
@@ -33,3 +34,4 @@ class ExpenseWithPayer:
     paid_by_user_id: int
     paid_by_name: Optional[str]
     created_at: datetime
+    receipt_url: Optional[str] = None

@@ -1,4 +1,5 @@
 from decimal import Decimal, ROUND_HALF_UP
+from typing import Optional
 from src.core.exceptions import AppError
 from src.core.logger import logger
 from src.models.expense import Expense
@@ -7,7 +8,12 @@ import src.repositories.group_repository as group_repository
 import src.repositories.expense_repository as expense_repository
 
 
-def create_expense(group_id: int, user_id: int, data: CreateExpenseRequest) -> Expense:
+def create_expense(
+    group_id: int,
+    user_id: int,
+    data: CreateExpenseRequest,
+    receipt_url: Optional[str] = None,
+) -> Expense:
     member = group_repository.get_member(group_id, user_id)
     if not member:
         raise AppError(403, "No sos miembro de este grupo")
@@ -32,9 +38,10 @@ def create_expense(group_id: int, user_id: int, data: CreateExpenseRequest) -> E
         paid_by_user_id=data.paidByUserId,
         created_by_user_id=user_id,
         splits=splits,
+        receipt_url=receipt_url,
     )
     logger.info(
         f"Expense created: id={expense.id}, group={group_id}, "
-        f"amount={data.amount}, splits={member_count}"
+        f"amount={data.amount}, splits={member_count}, receipt={bool(receipt_url)}"
     )
     return expense

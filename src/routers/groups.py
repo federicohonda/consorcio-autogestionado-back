@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Form, UploadFile, File
+from fastapi.responses import FileResponse
 
 from src.core.dependencies import get_current_user
 from src.core.exceptions import AppError
@@ -10,6 +12,9 @@ from src.schemas.group import CreateGroupRequest, GroupResponse, MemberResponse,
 from src.schemas.expense import CreateExpenseRequest, ExpenseResponse, MonthlySummaryResponse
 import src.services.group_service as group_service
 import src.services.expense_service as expense_service
+import src.services.receipt_service as receipt_service
+from src.core.config import settings
+import os
 
 router = APIRouter(prefix="/groups", tags=["groups"])
 
@@ -103,9 +108,23 @@ def leave_group(group_id: int, user=Depends(get_current_user)):
 
 
 @router.post("/{group_id}/expenses", status_code=201, response_model=ExpenseResponse)
-def create_expense(group_id: int, body: CreateExpenseRequest, user=Depends(get_current_user)):
+async def create_expense(
+    group_id: int,
+    description: str = Form(...),
+    amount: Decimal = Form(...),
+    paidByUserId: int = Form(...),
+    receipt: Optional[UploadFile] = File(default=None),
+    user=Depends(get_current_user),
+):
     user_id = int(user["sub"])
-    expense = _handle(expense_service.create_expense, group_id, user_id, body)
+
+    receipt_url: Optional[str] = None
+    if receipt and receipt.filename:
+        receipt_url = await receipt_service.save_receipt(receipt)
+
+    data = CreateExpenseRequest(description=description, amount=amount, paidByUserId=paidByUserId)
+    expense = _handle(expense_service.create_expense, group_id, user_id, data, receipt_url)
+
     from src.repositories.user_repository import find_by_id
     payer = find_by_id(expense.paid_by_user_id)
     return ExpenseResponse(
@@ -115,6 +134,7 @@ def create_expense(group_id: int, body: CreateExpenseRequest, user=Depends(get_c
         paid_by_name=payer.full_name if payer else None,
         paid_by_user_id=expense.paid_by_user_id,
         created_at=expense.created_at,
+        receipt_url=expense.receipt_url,
     )
 
 
@@ -137,9 +157,42 @@ def list_expenses(
             paid_by_name=e.paid_by_name,
             paid_by_user_id=e.paid_by_user_id,
             created_at=e.created_at,
+            receipt_url=e.receipt_url,
         )
         for e in expenses
     ]
+
+
+@router.get("/{group_id}/expenses/{expense_id}/receipt")
+def get_expense_receipt(
+    group_id: int,
+    expense_id: int,
+    user=Depends(get_current_user),
+):
+    """Serves the receipt file for a given expense (requires auth)."""
+    with __import__("src.database.db", fromlist=["get_db_cursor"]).get_db_cursor() as cur:
+        cur.execute(
+            "SELECT receipt_url FROM expenses WHERE id = %s AND group_id = %s",
+            (expense_id, group_id),
+        )
+        row = cur.fetchone()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Gasto no encontrado")
+
+    receipt_url = row["receipt_url"]
+    if not receipt_url:
+        raise HTTPException(status_code=404, detail="Este gasto no tiene comprobante")
+
+    # receipt_url is like /uploads/receipts/filename.ext
+    relative = receipt_url.lstrip("/")
+    parts = relative.split("/", 1)
+    file_path = os.path.join(settings.uploads_dir, parts[1] if len(parts) > 1 else parts[0])
+
+    if not os.path.isfile(file_path):
+        raise HTTPException(status_code=404, detail="Archivo de comprobante no encontrado")
+
+    return FileResponse(file_path)
 
 
 @router.get("/{group_id}/summary", response_model=MonthlySummaryResponse)

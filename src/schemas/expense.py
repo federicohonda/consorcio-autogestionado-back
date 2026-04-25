@@ -37,6 +37,7 @@ class ExpenseResponse(BaseModel):
     paid_by_name: Optional[str]
     paid_by_user_id: int
     created_at: datetime
+    receipt_url: Optional[str] = None
 
 
 class MonthlySummaryResponse(BaseModel):
