@@ -123,10 +123,13 @@ async def create_expense(
     
     # 1. Convertimos el string JSON a nuestro modelo complejo V2
     try:
+        import json
         body_dict = json.loads(expense_data)
+        # Aquí es donde falla si los nombres son distintos
         body = CreateExpenseRequest(**body_dict)
-    except (json.JSONDecodeError, ValidationError):
-        raise HTTPException(status_code=422, detail="Formato de datos de gasto inválido")
+    except Exception as e:
+        # Esto te va a imprimir en la pantalla de la app qué campo falta
+        raise HTTPException(status_code=422, detail=f"Error de validación: {str(e)}")
 
     # 2. Guardamos la foto de Thiago (si existe)
     receipt_url = None
