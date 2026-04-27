@@ -16,7 +16,7 @@ import src.repositories.group_repository as group_repository
 import src.repositories.expense_repository as expense_repository
 import src.repositories.user_repository as user_repository
 
-from src.schemas.group import CreateGroupRequest, GroupResponse, MemberResponse, TransferRoleRequest, UpdateM2Request, JoinGroupRequest
+from src.schemas.group import CreateGroupRequest, GroupResponse, MemberResponse, MemberWithBalanceResponse, TransferRoleRequest, UpdateM2Request, JoinGroupRequest
 from src.schemas.expense import CreateExpenseRequest, ExpenseResponse, MonthlySummaryResponse
 
 import src.services.group_service as group_service
@@ -93,6 +93,13 @@ def join_group(body: JoinGroupRequest, user=Depends(get_current_user)):
     user_id = int(user["sub"])
     group_name = _handle(group_service.join_group, user_id, body)
     return {"message": f"Te has unido a {group_name} exitosamente"}
+
+@router.get("/{group_id}/members/balances", response_model=list[MemberWithBalanceResponse])
+def get_members_balances(group_id: int, user=Depends(get_current_user)):
+    if not group_repository.find_by_id(group_id):
+        raise HTTPException(status_code=404, detail="Grupo no encontrado")
+    return group_repository.get_members_with_balance(group_id)
+
 
 @router.get("/{group_id}/members", response_model=list[MemberResponse])
 def get_members(group_id: int, user=Depends(get_current_user)):

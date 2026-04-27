@@ -12,6 +12,9 @@ class Group:
     created_at: datetime
     updated_at: datetime
     invite_code: Optional[str] = None
+    bank_alias: Optional[str] = None
+    bank_cbu: Optional[str] = None
+    bank_account_name: Optional[str] = None
 
 @dataclass
 class GroupMember:

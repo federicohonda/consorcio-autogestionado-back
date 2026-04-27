@@ -1,9 +1,10 @@
+from decimal import Decimal
 from typing import Optional
 import secrets
 import string
 from src.database.db import get_db_cursor
 from src.models.group import Group, GroupMember, GroupWithMeta
-from src.schemas.group import MemberResponse
+from src.schemas.group import MemberResponse, MemberWithBalanceResponse
 
 
 def generate_invite_code(length: int = 6) -> str:
@@ -92,6 +93,46 @@ def get_members(group_id: int) -> list[MemberResponse]:
             (group_id,),
         )
         return [MemberResponse(**dict(r)) for r in cur.fetchall()]
+
+
+def get_members_with_balance(group_id: int) -> list[MemberWithBalanceResponse]:
+    with get_db_cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+                gm.user_id,
+                u.full_name,
+                gm.role,
+                gm.m2,
+                (
+                    COALESCE((
+                        SELECT SUM(ep.amount_paid)
+                        FROM expense_payments ep
+                        JOIN expenses e ON e.id = ep.expense_id
+                        WHERE e.group_id = gm.group_id AND ep.user_id = gm.user_id
+                    ), 0)
+                    +
+                    COALESCE((
+                        SELECT SUM(op.amount)
+                        FROM owner_payments op
+                        WHERE op.group_id = gm.group_id AND op.user_id = gm.user_id
+                    ), 0)
+                    -
+                    COALESCE((
+                        SELECT SUM(es.amount)
+                        FROM expense_splits es
+                        JOIN expenses e ON e.id = es.expense_id
+                        WHERE e.group_id = gm.group_id AND es.user_id = gm.user_id
+                    ), 0)
+                ) AS net_balance
+            FROM group_members gm
+            JOIN users u ON u.id = gm.user_id
+            WHERE gm.group_id = %s
+            ORDER BY gm.role DESC, u.full_name ASC
+            """,
+            (group_id,),
+        )
+        return [MemberWithBalanceResponse(**dict(r)) for r in cur.fetchall()]
 
 
 def update_m2(group_id: int, m2_data: list[dict]) -> None:

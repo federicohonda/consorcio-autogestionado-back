@@ -57,6 +57,14 @@ class MemberResponse(BaseModel):
     m2: int = 0
 
 
+class MemberWithBalanceResponse(BaseModel):
+    user_id: int
+    full_name: Optional[str]
+    role: str
+    m2: int = 0
+    net_balance: Decimal
+
+
 class TransferRoleRequest(BaseModel):
     newAdminUserId: int
 
