@@ -280,6 +280,13 @@ Railway está conectado al repositorio de GitHub. Cada push a la rama principal 
 | HU-08 | Gestión de gastos | Selección de categoría del gasto para ordenar los movimientos |
 | HU-13 | Gestión de gastos | Adjuntar comprobante o imagen al registrar un gasto* |
 | HU-12 | Gestión de gastos | División proporcional del gasto (no en partes iguales) |
+| HU-23 | Socios y mora | Listado de socios con su situación actual (saldo, deuda) |
+| HU-16 | Gestión de pagos | Adjuntar comprobante al pago |
+| HU-17 | Gestión de pagos | Pago a un fondo común centralizado |
+| HU-04 | Pantalla principal | Accesos rápidos a acciones clave: cargar gasto, pagar, ver balance y reportes |
+| HU-01 | Ingreso y contexto del grupo | Selección del tipo de grupo al ingresar para adaptar la experiencia al contexto del consorcio |
+| HU-15 | Gestión de pagos | Registro de pago de expensas o saldo para actualizar deuda pendiente |
+
 
 ### Funcionalidades extra implementadas (fuera del backlog)
 
@@ -298,19 +305,14 @@ Railway está conectado al repositorio de GitHub. Cada push a la rama principal 
 | Metros Cuadrados (M2) | Registro persistente de tamaño de unidad al unirse a un grupo |
 | Etiquetado dinámico | El SQL genera strings amigables ("Camila y 2 más") automáticamente |
 
+
 ### Pendientes
 
 | HU | Épica | Historia |
 |---|---|---|
-| HU-01 | Ingreso y contexto del grupo | Selección del tipo de grupo al ingresar para adaptar la experiencia al contexto del consorcio |
-| HU-04 | Pantalla principal | Accesos rápidos a acciones clave: cargar gasto, pagar, ver balance y reportes |
 | HU-05 | Pantalla principal | Visualización de alertas relevantes sobre deuda o mora |
 | HU-14 | Gestión de gastos | Registrar gastos recurrentes para no cargarlos manualmente cada mes |
-| HU-15 | Gestión de pagos | Registro de pago de expensas o saldo para actualizar deuda pendiente |
-| HU-16 | Gestión de pagos | Adjuntar comprobante al pago |
-| HU-17 | Gestión de pagos | Pago a un fondo común centralizado |
 | HU-19 | Balance y reportes | Balance general de todos los socios — quién debe y quién cobra |
 | HU-20 | Balance y reportes | Reporte de estado de cuentas del período |
 | HU-21 | Balance y reportes | Detalle de gastos dentro del reporte de estado de cuentas |
-| HU-23 | Socios y mora | Listado de socios con su situación actual (saldo, deuda) |
 | HU-24 | Socios y mora | Identificación de socios en mora para hacer seguimiento de deudas vencidas |
