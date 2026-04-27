@@ -135,7 +135,20 @@ def get_monthly_summary(group_id: int, user_id: int, year: int, month: int) -> M
         )
         you_paid = Decimal(str(cur.fetchone()["you_paid"]))
 
-    your_balance = you_paid - your_share
+        # Transferencias directas al consorcio ese mes
+        cur.execute(
+            """
+            SELECT COALESCE(SUM(amount), 0) AS owner_paid
+            FROM owner_payments
+            WHERE group_id = %s AND user_id = %s
+              AND EXTRACT(YEAR  FROM payment_date) = %s
+              AND EXTRACT(MONTH FROM payment_date) = %s
+            """,
+            (group_id, user_id, year, month),
+        )
+        owner_paid = Decimal(str(cur.fetchone()["owner_paid"]))
+
+    your_balance = you_paid + owner_paid - your_share
 
     return MonthlySummaryResponse(
         year=year,
