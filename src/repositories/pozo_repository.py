@@ -157,3 +157,23 @@ def get_total_distributions(group_id: int, user_id: int) -> Decimal:
             (group_id, user_id),
         )
         return Decimal(str(cur.fetchone()["total"]))
+
+
+def create_contribution_debts(
+    group_id: int,
+    member_ids: list[int],
+    amount_per_member: Decimal,
+    month_year: int,
+) -> None:
+    """Creates one contribution_debt row per member for the given month.
+    Uses ON CONFLICT DO NOTHING so re-running is safe."""
+    with get_db_cursor() as cur:
+        for user_id in member_ids:
+            cur.execute(
+                """
+                INSERT INTO contribution_debts (group_id, user_id, amount, month_year)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (group_id, user_id, month_year) DO NOTHING
+                """,
+                (group_id, user_id, amount_per_member, month_year),
+            )

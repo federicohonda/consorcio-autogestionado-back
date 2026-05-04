@@ -182,20 +182,46 @@ def get_monthly_summary(group_id: int, user_id: int, year: int, month: int) -> M
         )
         you_paid = Decimal(str(cur.fetchone()["you_paid"]))
 
-        # Transferencias directas al consorcio ese mes
+        # Balance histórico acumulado (misma lógica que get_members_with_balance).
+        # "Tu balance" no se reinicia mes a mes: refleja toda la deuda/crédito histórica.
         cur.execute(
             """
-            SELECT COALESCE(SUM(amount), 0) AS owner_paid
-            FROM owner_payments
-            WHERE group_id = %s AND user_id = %s
-              AND EXTRACT(YEAR  FROM payment_date) = %s
-              AND EXTRACT(MONTH FROM payment_date) = %s
+            SELECT
+                COALESCE((
+                    SELECT SUM(ep.amount_paid)
+                    FROM expense_payments ep
+                    JOIN expenses e2 ON e2.id = ep.expense_id
+                    WHERE e2.group_id = %s AND ep.user_id = %s
+                ), 0)
+                +
+                COALESCE((
+                    SELECT SUM(op.amount)
+                    FROM owner_payments op
+                    WHERE op.group_id = %s AND op.user_id = %s
+                ), 0)
+                -
+                COALESCE((
+                    SELECT SUM(es.amount)
+                    FROM expense_splits es
+                    JOIN expenses e3 ON e3.id = es.expense_id
+                    WHERE e3.group_id = %s AND es.user_id = %s
+                ), 0)
+                -
+                COALESCE((
+                    SELECT SUM(cd.amount)
+                    FROM contribution_debts cd
+                    WHERE cd.group_id = %s AND cd.user_id = %s
+                ), 0)
+                -
+                COALESCE((
+                    SELECT SUM(pd.amount)
+                    FROM pozo_distributions pd
+                    WHERE pd.group_id = %s AND pd.user_id = %s
+                ), 0) AS net_balance
             """,
-            (group_id, user_id, year, month),
+            (group_id, user_id) * 5,
         )
-        owner_paid = Decimal(str(cur.fetchone()["owner_paid"]))
-
-    your_balance = you_paid + owner_paid - your_share
+        your_balance = Decimal(str(cur.fetchone()["net_balance"]))
 
     return MonthlySummaryResponse(
         year=year,

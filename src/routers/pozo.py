@@ -5,7 +5,6 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from src.core.dependencies import get_current_user
 import src.repositories.group_repository as group_repository
-import src.repositories.expense_repository as expense_repository
 import src.repositories.pozo_repository as pozo_repository
 from src.schemas.pozo import PozoResponse, UpdatePozoConfigRequest, AdvanceMonthResponse
 
@@ -108,30 +107,18 @@ def advance_month(group_id: int, user=Depends(get_current_user)):
     # 5. Avanzar el mes
     new_month = pozo_repository.advance_active_month(group_id)
 
-    # 6. Si hay aporte mensual configurado, crear gasto automático para el nuevo mes
+    # 6. Si hay aporte mensual configurado, crear deudas individuales para el nuevo mes
+    # No se crea un "gasto": los aportes no aparecen en la lista de gastos ni suman al Total del mes.
+    # Se acumulan mes a mes en contribution_debts hasta que cada miembro los pague via owner_payment.
     if monthly_contribution > Decimal("0"):
         members = group_repository.get_members(group_id)
-        member_count = len(members)
-        if member_count > 0:
-            total_aporte = (monthly_contribution * member_count).quantize(unit, rounding=ROUND_HALF_UP)
-            new_year = new_month // 100
-            new_month_num = new_month % 100
-            month_name = MONTH_NAMES[new_month_num - 1]
-            new_date = date(new_year, new_month_num, 1)
-
+        if members:
             share = monthly_contribution.quantize(unit, rounding=ROUND_HALF_UP)
-            splits = [{"user_id": m.user_id, "amount": share} for m in members]
-            total_splits = sum(s["amount"] for s in splits)
-            if total_splits != total_aporte:
-                splits[0]["amount"] += total_aporte - total_splits
-
-            expense_repository.create_monthly_contribution(
+            pozo_repository.create_contribution_debts(
                 group_id=group_id,
-                created_by_user_id=user_id,
-                description=f"Aporte mensual {month_name} {new_year}",
-                amount=total_aporte,
-                expense_date=new_date,
-                splits=splits,
+                member_ids=[m.user_id for m in members],
+                amount_per_member=share,
+                month_year=new_month,
             )
 
     # 7. Obtener balance final del Pozo

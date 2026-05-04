@@ -117,18 +117,24 @@ def get_members_with_balance(group_id: int) -> list[MemberWithBalanceResponse]:
                         FROM owner_payments op
                         WHERE op.group_id = gm.group_id AND op.user_id = gm.user_id
                     ), 0)
-                    +
-                    COALESCE((
-                        SELECT SUM(pd.amount)
-                        FROM pozo_distributions pd
-                        WHERE pd.group_id = gm.group_id AND pd.user_id = gm.user_id
-                    ), 0)
                     -
                     COALESCE((
                         SELECT SUM(es.amount)
                         FROM expense_splits es
                         JOIN expenses e ON e.id = es.expense_id
                         WHERE e.group_id = gm.group_id AND es.user_id = gm.user_id
+                    ), 0)
+                    -
+                    COALESCE((
+                        SELECT SUM(cd.amount)
+                        FROM contribution_debts cd
+                        WHERE cd.group_id = gm.group_id AND cd.user_id = gm.user_id
+                    ), 0)
+                    -
+                    COALESCE((
+                        SELECT SUM(pd.amount)
+                        FROM pozo_distributions pd
+                        WHERE pd.group_id = gm.group_id AND pd.user_id = gm.user_id
                     ), 0)
                 ) AS net_balance
             FROM group_members gm
