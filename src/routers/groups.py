@@ -22,6 +22,7 @@ from src.schemas.expense import CreateExpenseRequest, ExpenseResponse, MonthlySu
 import src.services.group_service as group_service
 import src.services.expense_service as expense_service
 import src.services.receipt_service as receipt_service
+import src.repositories.pozo_repository as pozo_repository
 
 router = APIRouter(prefix="/groups", tags=["groups"])
 
@@ -78,6 +79,7 @@ def get_my_group(user=Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Sin grupo")
     member = group_repository.get_member(group.id, user_id)
     members = group_repository.get_members(group.id)
+    settings = pozo_repository.ensure_settings(group.id)
     return GroupResponse(
         id=group.id,
         name=group.name,
@@ -86,6 +88,7 @@ def get_my_group(user=Depends(get_current_user)):
         member_count=len(members),
         your_role=member.role if member else None,
         invite_code=group.invite_code,
+        active_month=settings.active_month,
     )
 
 @router.post("/join", status_code=200, summary="Unirse a un consorcio con código")
@@ -146,13 +149,16 @@ async def create_expense(
     # 3. Mandamos TODO a nuestro motor de gastos
     expense = _handle(expense_service.create_expense, group_id, user_id, body, receipt_url)
 
-    paid_by_user_id = None
-    paid_by_name = "Varios pagadores"
-
-    if len(body.payments) == 1:
+    if body.paid_by_pozo:
+        paid_by_user_id = None
+        paid_by_name = "el Pozo"
+    elif len(body.payments) == 1:
         paid_by_user_id = body.payments[0].user_id
         payer = user_repository.find_by_id(paid_by_user_id)
         paid_by_name = payer.full_name if payer else "Administrador"
+    else:
+        paid_by_user_id = None
+        paid_by_name = "Varios pagadores"
 
     return ExpenseResponse(
         id=expense.id,
@@ -162,7 +168,8 @@ async def create_expense(
         paid_by_user_id=paid_by_user_id,
         paid_by_name=paid_by_name,
         created_at=expense.created_at,
-        receipt_url=receipt_url
+        receipt_url=receipt_url,
+        paid_by_pozo=body.paid_by_pozo,
     )
 
 @router.get("/{group_id}/expenses", response_model=list[ExpenseResponse])
@@ -186,6 +193,7 @@ def list_expenses(
             paid_by_user_id=e.paid_by_user_id,
             created_at=e.created_at,
             receipt_url=e.receipt_url,
+            paid_by_pozo=e.paid_by_pozo,
         )
         for e in expenses
     ]

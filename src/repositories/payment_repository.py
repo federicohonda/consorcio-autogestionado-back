@@ -94,6 +94,17 @@ def get_owner_balance(group_id: int, user_id: int, year: int, month: int) -> Own
         )
         total_transferred = Decimal(str(cur.fetchone()["total_transferred"]))
 
+        # Distribuciones recibidas del Pozo al avanzar mes
+        cur.execute(
+            """
+            SELECT COALESCE(SUM(amount), 0) AS total_distributions
+            FROM pozo_distributions
+            WHERE group_id = %s AND user_id = %s
+            """,
+            (group_id, user_id),
+        )
+        total_distributions = Decimal(str(cur.fetchone()["total_distributions"]))
+
         # Datos bancarios del consorcio
         cur.execute(
             "SELECT bank_alias, bank_cbu, bank_account_name FROM groups WHERE id = %s",
@@ -101,8 +112,8 @@ def get_owner_balance(group_id: int, user_id: int, year: int, month: int) -> Own
         )
         bank_row = cur.fetchone()
 
-    # Contribución total = lo que adelantaste para gastos + lo que transferiste al consorcio
-    total_contributed = total_fronted + total_transferred
+    # Contribución total = lo que adelantaste + lo que transferiste + lo distribuido por el Pozo
+    total_contributed = total_fronted + total_transferred + total_distributions
 
     # Balance neto: positivo = saldo a favor, negativo = deuda
     net_balance = total_contributed - total_owed

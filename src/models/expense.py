@@ -18,6 +18,7 @@ class Expense:
     division_type: str
     receipt_url: Optional[str] = None
     paid_by_user_id: Optional[int] = None
+    paid_by_pozo: bool = False
 
 @dataclass
 class ExpensePayment:
@@ -45,3 +46,4 @@ class ExpenseWithPayer:
     # Categoría (nuestra) y Recibo (de Thiago) SIEMPRE AL FINAL por tener defaults
     category: Optional[str] = "Otros"
     receipt_url: Optional[str] = None
+    paid_by_pozo: bool = False

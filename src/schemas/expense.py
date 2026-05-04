@@ -21,7 +21,10 @@ class CreateExpenseRequest(BaseModel):
     expense_date: Optional[date] = Field(default_factory=date.today, alias="expenseDate")
     division_type: str = Field(default="EQUALLY", alias="divisionType")
     receipt_url: Optional[str] = Field(default=None, alias="receiptUrl")
-    payments: List[PaymentDetail]
+    payments: List[PaymentDetail] = Field(default_factory=list)
+    paid_by_pozo: bool = Field(default=False, alias="paidByPozo")
+
+    model_config = {"populate_by_name": True}
 
     @field_validator("description")
     @classmethod
@@ -39,7 +42,11 @@ class CreateExpenseRequest(BaseModel):
 
     @model_validator(mode='after')
     def check_payments_sum(self) -> 'CreateExpenseRequest':
-        # Validar que la suma de lo que pagaron coincida con el total del gasto
+        # Cuando el Pozo paga, no hay pagadores individuales
+        if self.paid_by_pozo:
+            if self.payments:
+                raise ValueError("No se pueden registrar pagadores cuando el gasto es pagado por el Pozo")
+            return self
         total_payments = sum(p.amount for p in self.payments)
         if total_payments != self.amount:
             raise ValueError(f"La suma de los pagos ({total_payments}) debe ser igual al monto total ({self.amount})")
@@ -55,10 +62,11 @@ class ExpenseResponse(BaseModel):
     description: str
     amount: Decimal
     paid_by_name: Optional[str]
-    paid_by_user_id: Optional[int] # Lo cambiamos a Optional por V2
+    paid_by_user_id: Optional[int]
     created_at: datetime
     category: str = "Otros"
     receipt_url: Optional[str] = None
+    paid_by_pozo: bool = False
 
 class MonthlySummaryResponse(BaseModel):
     year: int

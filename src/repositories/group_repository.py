@@ -117,6 +117,12 @@ def get_members_with_balance(group_id: int) -> list[MemberWithBalanceResponse]:
                         FROM owner_payments op
                         WHERE op.group_id = gm.group_id AND op.user_id = gm.user_id
                     ), 0)
+                    +
+                    COALESCE((
+                        SELECT SUM(pd.amount)
+                        FROM pozo_distributions pd
+                        WHERE pd.group_id = gm.group_id AND pd.user_id = gm.user_id
+                    ), 0)
                     -
                     COALESCE((
                         SELECT SUM(es.amount)

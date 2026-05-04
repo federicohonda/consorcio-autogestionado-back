@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from src.core.config import settings
 from src.core.logger import logger
 from src.routers import health, auth, users, groups, payments
+from src.routers import pozo
 
 app = FastAPI(
     title=settings.app_name,
@@ -27,6 +28,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(groups.router)
 app.include_router(payments.router)
+app.include_router(pozo.router)
 
 # Serve uploaded receipts as static files
 uploads_dir = settings.uploads_dir

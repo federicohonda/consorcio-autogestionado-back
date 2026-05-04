@@ -4,6 +4,28 @@ from src.database.db import get_db_cursor
 from src.models.expense import Expense, ExpenseWithPayer
 from src.schemas.expense import MonthlySummaryResponse, CreateExpenseRequest
 
+def _insert_expense_base(cur, group_id: int, created_by_user_id: int, data: CreateExpenseRequest, receipt_url: Optional[str]) -> Expense:
+    cur.execute(
+        """
+        INSERT INTO expenses (
+            group_id, description, amount, category,
+            expense_date, division_type, receipt_url, created_by_user_id, paid_by_pozo
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        RETURNING *
+        """,
+        (
+            group_id, data.description, data.amount, data.category,
+            data.expense_date, data.division_type, receipt_url, created_by_user_id,
+            data.paid_by_pozo,
+        ),
+    )
+    expense_row = dict(cur.fetchone())
+    if 'paid_by_user_id' not in expense_row:
+        expense_row['paid_by_user_id'] = None
+    return Expense(**expense_row)
+
+
 def create_expense_with_splits_v2(
     group_id: int,
     created_by_user_id: int,
@@ -12,37 +34,14 @@ def create_expense_with_splits_v2(
     receipt_url: Optional[str] = None,
 ) -> Expense:
     with get_db_cursor() as cur:
-        # 1. Insertar el gasto base (Nuestro motor V2 + El receipt_url de Thiago)
-        cur.execute(
-            """
-            INSERT INTO expenses (
-                group_id, description, amount, category, 
-                expense_date, division_type, receipt_url, created_by_user_id
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING *
-            """,
-            (
-                group_id, data.description, data.amount, data.category,
-                data.expense_date, data.division_type, receipt_url, created_by_user_id
-            ),
-        )
-        expense_row = dict(cur.fetchone())
-        
-        # Como paid_by_user_id ya no está en la tabla base, lo manejamos para el modelo
-        if 'paid_by_user_id' not in expense_row:
-             expense_row['paid_by_user_id'] = None
-             
-        expense = Expense(**expense_row)
+        expense = _insert_expense_base(cur, group_id, created_by_user_id, data, receipt_url)
 
-        # 2. Insertar quiénes pusieron la plata (Ingresos)
         for payment in data.payments:
             cur.execute(
                 "INSERT INTO expense_payments (expense_id, user_id, amount_paid) VALUES (%s, %s, %s)",
                 (expense.id, payment.user_id, payment.amount),
             )
 
-        # 3. Insertar cómo se dividió (Deudas)
         for split in splits:
             cur.execute(
                 "INSERT INTO expense_splits (expense_id, user_id, amount) VALUES (%s, %s, %s)",
@@ -51,24 +50,72 @@ def create_expense_with_splits_v2(
 
     return expense
 
+
+def create_expense_no_splits(
+    group_id: int,
+    created_by_user_id: int,
+    data: CreateExpenseRequest,
+    receipt_url: Optional[str] = None,
+) -> Expense:
+    """Creates an expense paid by the Pozo — no splits, no individual payers."""
+    with get_db_cursor() as cur:
+        expense = _insert_expense_base(cur, group_id, created_by_user_id, data, receipt_url)
+    return expense
+
+
+def create_monthly_contribution(
+    group_id: int,
+    created_by_user_id: int,
+    description: str,
+    amount: Decimal,
+    expense_date,
+    splits: list[dict],
+) -> Expense:
+    """Creates the automatic monthly contribution expense bypassing Pydantic validation."""
+    with get_db_cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO expenses (
+                group_id, description, amount, category,
+                expense_date, division_type, receipt_url, created_by_user_id, paid_by_pozo
+            )
+            VALUES (%s, %s, %s, 'Otros', %s, 'EQUALLY', NULL, %s, FALSE)
+            RETURNING *
+            """,
+            (group_id, description, amount, expense_date, created_by_user_id),
+        )
+        expense_row = dict(cur.fetchone())
+        expense_row.setdefault('paid_by_user_id', None)
+        expense = Expense(**expense_row)
+
+        for split in splits:
+            cur.execute(
+                "INSERT INTO expense_splits (expense_id, user_id, amount) VALUES (%s, %s, %s)",
+                (expense.id, split["user_id"], split["amount"]),
+            )
+    return expense
+
 def list_expenses(group_id: int, year: int, month: int) -> list[ExpenseWithPayer]:
     with get_db_cursor() as cur:
-        # Traemos el gasto (agregamos e.receipt_url) y armamos dinámicamente la etiqueta de pagadores
         cur.execute(
             """
             SELECT
-                e.id, e.group_id, e.description, e.amount, e.category, e.created_at, e.receipt_url,
+                e.id, e.group_id, e.description, e.amount, e.category, e.created_at,
+                e.receipt_url, e.paid_by_pozo,
                 (SELECT user_id FROM expense_payments WHERE expense_id = e.id LIMIT 1) as paid_by_user_id,
-                (
-                    SELECT CASE
-                        WHEN COUNT(*) = 1 THEN MAX(u.full_name)
-                        WHEN COUNT(*) > 1 THEN MAX(u.full_name) || ' y ' || (COUNT(*) - 1)::text || ' más'
-                        ELSE 'Sin pagos'
-                    END
-                    FROM expense_payments ep
-                    JOIN users u ON u.id = ep.user_id
-                    WHERE ep.expense_id = e.id
-                ) as paid_by_name
+                CASE
+                    WHEN e.paid_by_pozo THEN 'el Pozo'
+                    ELSE (
+                        SELECT CASE
+                            WHEN COUNT(*) = 1 THEN MAX(u.full_name)
+                            WHEN COUNT(*) > 1 THEN MAX(u.full_name) || ' y ' || (COUNT(*) - 1)::text || ' más'
+                            ELSE 'Sin pagos'
+                        END
+                        FROM expense_payments ep
+                        JOIN users u ON u.id = ep.user_id
+                        WHERE ep.expense_id = e.id
+                    )
+                END AS paid_by_name
             FROM expenses e
             WHERE e.group_id = %s
               AND EXTRACT(YEAR  FROM e.expense_date) = %s

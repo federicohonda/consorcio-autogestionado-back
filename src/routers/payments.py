@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Form, UploadFile, File, Q
 from src.core.dependencies import get_current_user
 import src.repositories.payment_repository as payment_repository
 import src.repositories.group_repository as group_repository
+import src.repositories.pozo_repository as pozo_repository
 import src.services.receipt_service as receipt_service
 from src.schemas.payment import (
     OwnerBalanceResponse,
@@ -66,6 +67,16 @@ async def create_owner_payment(
         receipt_url=receipt_url,
         payment_date=body.payment_date,
         notes=body.notes,
+    )
+
+    # Todo pago ingresa automáticamente al Pozo
+    pozo_repository.ensure_settings(group_id)
+    pozo_repository.update_pozo_balance(group_id, body.amount)
+    pozo_repository.create_movement(
+        group_id=group_id,
+        type="PAYMENT_INCOME",
+        amount=body.amount,
+        user_id=user_id,
     )
 
     return OwnerPaymentResponse(
