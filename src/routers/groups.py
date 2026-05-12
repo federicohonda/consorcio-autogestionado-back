@@ -89,6 +89,7 @@ def get_my_group(user=Depends(get_current_user)):
         your_role=member.role if member else None,
         invite_code=group.invite_code,
         active_month=settings.active_month,
+        created_at=group.created_at,
     )
 
 @router.post("/join", status_code=200, summary="Unirse a un consorcio con código")

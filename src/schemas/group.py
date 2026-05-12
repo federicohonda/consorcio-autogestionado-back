@@ -35,6 +35,7 @@ class GroupResponse(BaseModel):
     your_role: Optional[str] = None
     invite_code: Optional[str] = None
     active_month: Optional[int] = None  # YYYYMM, present in /mine response
+    created_at: Optional[datetime] = None
 
 
 
