@@ -18,7 +18,7 @@ Backend de la aplicación **Consorcio Autogestionado** (GDSI TP4). API REST desa
 | Loguru | Logging |
 | Docker + Docker Compose | Contenedores local y producción |
 | Supabase | PostgreSQL en producción |
-| Railway | Hosting del contenedor Docker en producción |
+| Render | Hosting del contenedor Docker en producción |
 
 ---
 
@@ -114,14 +114,26 @@ poetry run uvicorn src.main:app --reload --port 8000
 # API disponible en http://localhost:8000
 ```
 
+### Opción C — Docker Compose con Supabase (base de datos de producción, API local)
+
+Ideal para probar con datos reales sin necesidad de un deploy externo:
+
+```bash
+# El .env ya debe tener DATABASE_URL apuntando a Supabase
+
+make up-remote
+# API disponible en http://localhost:8001, conectada a Supabase
+```
+
 ### Comandos útiles
 
 ```bash
-make up-local      # Levanta API + Postgres en Docker
-make down          # Baja los contenedores
-make logs          # Logs del contenedor de la API
+make up-local      # Levanta API + Postgres local en Docker
+make up-remote     # Levanta API conectada a Supabase (requiere .env completo)
+make down-local    # Baja los contenedores de up-local
+make down-remote   # Baja los contenedores de up-remote
 make install       # poetry install
-make dev           # uvicorn --reload (sin Docker)
+make dev           # uvicorn --reload (sin Docker, requiere Postgres externo)
 ```
 
 ---
@@ -216,32 +228,39 @@ El desarrollo del backend se guió por las siguientes definiciones técnicas y a
 
 ---
 
-## Deploy en Railway + Supabase
+## Deploy en Render + Supabase
 
 ### Base de datos (Supabase)
 
-1. Crear proyecto en [supabase.com](https://supabase.com).
-2. Ir al botón **Connect** (parte superior del dashboard).
-3. Copiar la URI de **Session pooler** (puerto 5432, modo `?pgbouncer=true` desactivado si corresponde).
-4. Usar esa URI como `DATABASE_URL` en Railway.
+La DB de producción vive en Supabase. Para obtener la URL de conexión:
 
-### API (Railway)
+1. Entrar al dashboard de [supabase.com](https://supabase.com) → proyecto → botón **Connect**.
+2. Copiar la URI de **Session pooler** (puerto 6543, modo Transaction).
+3. Esa URI es el valor de `DATABASE_URL` para Render.
 
-1. Crear proyecto en [railway.app](https://railway.app) y conectar el repositorio.
-2. Railway detecta el `Dockerfile` automáticamente.
-3. En **Variables**, configurar:
+### API (Render) — primera vez
+
+Render es el hosting gratuito del contenedor Docker (reemplaza Railway).
+
+1. Crear cuenta en [render.com](https://render.com).
+2. **New → Web Service** → conectar el repositorio de GitHub.
+3. Render detecta el `Dockerfile` automáticamente.
+4. Configurar:
+   - **Region**: Ohio (US East) — mismo que Supabase para minimizar latencia
+   - **Instance Type**: Free
+5. En **Environment Variables**, agregar:
    - `DATABASE_URL` — URI del Session pooler de Supabase
-   - `JWT_SECRET` — cadena secreta larga
+   - `JWT_SECRET` — cadena secreta larga y aleatoria
    - `ACCESS_TOKEN_EXPIRE_MINUTES` — `60`
    - `REFRESH_TOKEN_EXPIRE_DAYS` — `30`
-4. Al deployar, el contenedor arranca, ejecuta las migraciones y expone el puerto configurado.
-5. Copiar la URL pública de Railway (ej: `https://consorcio-back-production.up.railway.app`) para usarla como `EXPO_PUBLIC_API_URL` en el frontend.
+6. Click **Deploy Web Service**. Al terminar de buildear, Render da una URL pública tipo `https://consorcio-back.onrender.com`.
+7. Usar esa URL como `EXPO_PUBLIC_API_URL` en el frontend (Vercel y `.env` local del mobile).
+
+> ⚠️ **Tier gratuito de Render**: el servicio se "duerme" tras 15 minutos de inactividad. La primera request después de dormir tarda ~30-60 segundos en responder (cold start). Es normal para proyectos académicos; con un plan pago desaparece este comportamiento.
 
 ### Deployar cambios nuevos
 
-Railway está conectado al repositorio de GitHub. Cada push a la rama principal dispara un redeploy automático: Railway reconstruye la imagen Docker, reemplaza el contenedor y ejecuta las migraciones automáticamente al iniciar.
-
-> ⚠️ **Atención**: Railway tiene un período de prueba de 30 días. El proyecto fue creado el 17/04/2026, por lo que el vencimiento es aproximadamente el **17/05/2026**. Pasada esa fecha, el servicio se suspende y hay que migrar a un plan pago o a otra plataforma.
+Render está conectado al repositorio de GitHub. Cada push a la rama principal dispara un redeploy automático.
 
 **Pasos:**
 
@@ -254,11 +273,11 @@ Railway está conectado al repositorio de GitHub. Cada push a la rama principal 
    git push
    ```
 
-3. Abrí el dashboard de Railway → proyecto `consorcio-autogestionado-back` → pestaña **Deployments**.
+3. Abrí el dashboard de Render → servicio `consorcio-autogestionado-back` → pestaña **Events**.
 
-4. Vas a ver un nuevo deployment apareciendo con estado **Building**. Esperá a que pase a **Active** y diga **Deployment successful**.
+4. Vas a ver un nuevo deploy en estado **Building**. Esperá a que pase a **Live**.
 
-5. Si agregaste una migración nueva (archivo `.sql` en `supabase/migrations/`), se ejecuta sola al arrancar el contenedor. Podés verificarlo en **View logs** del deployment.
+5. Si agregaste una migración nueva (archivo `.sql` en `supabase/migrations/`), se ejecuta sola al arrancar el contenedor. Podés verlo en **Logs**.
 
 ---
 
