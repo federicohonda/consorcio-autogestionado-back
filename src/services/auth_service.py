@@ -34,7 +34,7 @@ def login_user(dto: LoginRequest) -> TokenResponse:
     refresh_token = create_refresh_token(str(user.id))
 
     logger.info(f"User logged in: id={user.id}, role={role}")
-    return TokenResponse(accessToken=access_token, refreshToken=refresh_token)
+    return TokenResponse(accessToken=access_token, refreshToken=refresh_token, full_name=user.full_name)
 
 
 def refresh_access_token(refresh_token: str) -> AccessTokenResponse:

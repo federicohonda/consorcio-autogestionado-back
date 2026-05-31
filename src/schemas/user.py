@@ -45,6 +45,7 @@ class TokenResponse(BaseModel):
     accessToken: str
     refreshToken: str
     tokenType: str = "bearer"
+    full_name: Optional[str] = None
 
 
 class AccessTokenResponse(BaseModel):
