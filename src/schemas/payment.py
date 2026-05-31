@@ -24,6 +24,7 @@ class OwnerPaymentResponse(BaseModel):
     receipt_url: str
     notes: Optional[str] = None
     created_at: datetime
+    full_name: Optional[str] = None
 
 
 class OwnerBalanceResponse(BaseModel):

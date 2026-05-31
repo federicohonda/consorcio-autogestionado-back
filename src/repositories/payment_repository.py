@@ -29,17 +29,19 @@ def create_owner_payment(
         return OwnerPayment(**dict(cur.fetchone()))
 
 
-def get_owner_payments(group_id: int, user_id: int) -> list[OwnerPayment]:
+def get_owner_payments(group_id: int, user_id: int) -> list[dict]:
     with get_db_cursor() as cur:
         cur.execute(
             """
-            SELECT * FROM owner_payments
-            WHERE group_id = %s AND user_id = %s
-            ORDER BY payment_date DESC, created_at DESC
+            SELECT op.*, u.full_name
+            FROM owner_payments op
+            JOIN users u ON u.id = op.user_id
+            WHERE op.group_id = %s AND op.user_id = %s
+            ORDER BY op.payment_date DESC, op.created_at DESC
             """,
             (group_id, user_id),
         )
-        return [OwnerPayment(**dict(r)) for r in cur.fetchall()]
+        return [dict(r) for r in cur.fetchall()]
 
 
 def get_owner_balance(group_id: int, user_id: int, year: int, month: int) -> OwnerBalanceResponse:

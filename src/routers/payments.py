@@ -112,12 +112,13 @@ def list_owner_payments(
     payments = payment_repository.get_owner_payments(group_id, user_id)
     return [
         OwnerPaymentResponse(
-            id=p.id,
-            amount=p.amount,
-            payment_date=p.payment_date,
-            receipt_url=p.receipt_url,
-            notes=p.notes,
-            created_at=p.created_at,
+            id=p["id"],
+            amount=p["amount"],
+            payment_date=p["payment_date"],
+            receipt_url=p["receipt_url"],
+            notes=p.get("notes"),
+            created_at=p["created_at"],
+            full_name=p.get("full_name"),
         )
         for p in payments
     ]
