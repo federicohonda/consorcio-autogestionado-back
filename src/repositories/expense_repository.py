@@ -126,6 +126,75 @@ def list_expenses(group_id: int, year: int, month: int) -> list[ExpenseWithPayer
         )
         return [ExpenseWithPayer(**dict(r)) for r in cur.fetchall()]
 
+def get_expense_by_id(expense_id: int, group_id: int):
+    with get_db_cursor() as cur:
+        cur.execute(
+            "SELECT * FROM expenses WHERE id = %s AND group_id = %s",
+            (expense_id, group_id),
+        )
+        row = cur.fetchone()
+        if not row:
+            return None
+        row_dict = dict(row)
+        row_dict.setdefault('paid_by_user_id', None)
+        return Expense(**row_dict)
+
+
+def get_expense_detail(expense_id: int, group_id: int):
+    """Returns expense + its individual payments for the edit form."""
+    with get_db_cursor() as cur:
+        cur.execute(
+            "SELECT * FROM expenses WHERE id = %s AND group_id = %s",
+            (expense_id, group_id),
+        )
+        row = cur.fetchone()
+        if not row:
+            return None
+        expense = dict(row)
+
+        cur.execute(
+            "SELECT user_id, amount_paid FROM expense_payments WHERE expense_id = %s",
+            (expense_id,),
+        )
+        expense["payments"] = [
+            {"user_id": r["user_id"], "amount": r["amount_paid"]}
+            for r in cur.fetchall()
+        ]
+        return expense
+
+
+def update_expense_with_splits(
+    expense_id: int,
+    updates: dict,
+    new_splits: list[dict],
+    new_payments: list[dict],
+) -> Expense:
+    with get_db_cursor() as cur:
+        set_parts = ", ".join(f"{k} = %s" for k in updates)
+        cur.execute(
+            f"UPDATE expenses SET {set_parts}, updated_at = NOW() WHERE id = %s RETURNING *",
+            [*updates.values(), expense_id],
+        )
+        row = dict(cur.fetchone())
+        row.setdefault('paid_by_user_id', None)
+        expense = Expense(**row)
+
+        cur.execute("DELETE FROM expense_splits WHERE expense_id = %s", (expense_id,))
+        cur.execute("DELETE FROM expense_payments WHERE expense_id = %s", (expense_id,))
+
+        for p in new_payments:
+            cur.execute(
+                "INSERT INTO expense_payments (expense_id, user_id, amount_paid) VALUES (%s, %s, %s)",
+                (expense_id, p["user_id"], p["amount"]),
+            )
+        for s in new_splits:
+            cur.execute(
+                "INSERT INTO expense_splits (expense_id, user_id, amount) VALUES (%s, %s, %s)",
+                (expense_id, s["user_id"], s["amount"]),
+            )
+    return expense
+
+
 def get_user_alltime_balance(group_id: int, user_id: int) -> Decimal:
     with get_db_cursor() as cur:
         cur.execute(

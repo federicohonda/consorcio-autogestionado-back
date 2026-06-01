@@ -17,7 +17,7 @@ import src.repositories.expense_repository as expense_repository
 import src.repositories.user_repository as user_repository
 
 from src.schemas.group import CreateGroupRequest, GroupResponse, MemberResponse, MemberWithBalanceResponse, TransferRoleRequest, UpdateM2Request, JoinGroupRequest
-from src.schemas.expense import CreateExpenseRequest, ExpenseResponse, MonthlySummaryResponse
+from src.schemas.expense import CreateExpenseRequest, UpdateExpenseRequest, ExpenseResponse, ExpenseDetailResponse, MonthlySummaryResponse
 
 import src.services.group_service as group_service
 import src.services.expense_service as expense_service
@@ -198,6 +198,38 @@ def list_expenses(
         )
         for e in expenses
     ]
+
+@router.get("/{group_id}/expenses/{expense_id}", response_model=ExpenseDetailResponse)
+def get_expense(group_id: int, expense_id: int, user=Depends(get_current_user)):
+    if not group_repository.find_by_id(group_id):
+        raise HTTPException(status_code=404, detail="Grupo no encontrado")
+    detail = expense_repository.get_expense_detail(expense_id, group_id)
+    if not detail:
+        raise HTTPException(status_code=404, detail="Gasto no encontrado")
+    return ExpenseDetailResponse(**detail)
+
+
+@router.patch("/{group_id}/expenses/{expense_id}", response_model=ExpenseResponse)
+def update_expense(
+    group_id: int,
+    expense_id: int,
+    body: UpdateExpenseRequest,
+    user=Depends(get_current_user),
+):
+    user_id = int(user["sub"])
+    expense = _handle(expense_service.update_expense, group_id, user_id, expense_id, body)
+    return ExpenseResponse(
+        id=expense.id,
+        description=expense.description,
+        amount=expense.amount,
+        category=expense.category,
+        paid_by_user_id=None,
+        paid_by_name=None,
+        created_at=expense.created_at,
+        receipt_url=expense.receipt_url,
+        paid_by_pozo=expense.paid_by_pozo,
+    )
+
 
 @router.get("/{group_id}/expenses/{expense_id}/receipt")
 def get_expense_receipt(
