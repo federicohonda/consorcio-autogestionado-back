@@ -335,3 +335,4 @@ Render está conectado al repositorio de GitHub. Cada push a la rama principal d
 | HU-20 | Balance y reportes | Reporte de estado de cuentas del período |
 | HU-21 | Balance y reportes | Detalle de gastos dentro del reporte de estado de cuentas |
 | HU-24 | Socios y mora | Identificación de socios en mora para hacer seguimiento de deudas vencidas |
+
