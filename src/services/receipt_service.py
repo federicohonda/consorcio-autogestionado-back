@@ -51,19 +51,6 @@ async def save_receipt(file: UploadFile) -> str:
     return public_url
 
 
-def delete_receipt(receipt_url: str) -> None:
-    """Removes a receipt file from disk (best-effort)."""
-    if not receipt_url:
-        return
-    relative = receipt_url.lstrip("/")
-    file_path = os.path.join(settings.uploads_dir, *relative.split("/")[1:])
-    try:
-        if os.path.isfile(file_path):
-            os.remove(file_path)
-    except OSError as e:
-        logger.warning(f"Could not delete receipt {file_path}: {e}")
-
-
 def _ext_from_mime(mime: str) -> str:
     mapping = {
         "image/jpeg": ".jpg",

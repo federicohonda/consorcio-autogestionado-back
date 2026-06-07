@@ -4,7 +4,6 @@ from src.core.logger import logger
 from src.models.group import Group
 from src.schemas.group import CreateGroupRequest
 import src.repositories.group_repository as group_repository
-import src.repositories.expense_repository as expense_repository
 from src.schemas.group import JoinGroupRequest
 
 
@@ -33,27 +32,6 @@ def join_group(user_id: int, data: JoinGroupRequest) -> str:
 
     logger.info(f"User {user_id} joined group {group.id} via invite code")
     return group.name
-
-
-def leave_group(group_id: int, user_id: int) -> None:
-    member = group_repository.get_member(group_id, user_id)
-    if not member:
-        raise AppError(404, "No sos miembro de este grupo")
-
-    if member.role == "Administrador":
-        members = group_repository.get_members(group_id)
-        if len(members) > 1:
-            raise AppError(400, "Transferí el rol de Administrador a otro miembro antes de salir")
-
-    balance = expense_repository.get_user_alltime_balance(group_id, user_id)
-    if balance < -0.01:
-        raise AppError(
-            400,
-            f"Tenés un saldo pendiente de ${abs(balance):.2f}. Saldalo antes de salir del grupo",
-        )
-
-    group_repository.remove_member(group_id, user_id)
-    logger.info(f"User {user_id} left group {group_id}")
 
 
 def remove_members(group_id: int, requesting_user_id: int, user_ids_to_remove: list[int]) -> None:

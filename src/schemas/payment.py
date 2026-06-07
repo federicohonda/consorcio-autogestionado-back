@@ -46,10 +46,4 @@ class AdminPaymentResponse(BaseModel):
     notes: Optional[str] = None
     created_at: datetime
 
-
-class UpdateBankDataRequest(BaseModel):
-    bank_alias: Optional[str] = Field(default=None, alias="bankAlias")
-    bank_cbu: Optional[str] = Field(default=None, alias="bankCbu")
-    bank_account_name: Optional[str] = Field(default=None, alias="bankAccountName")
-
     model_config = {"populate_by_name": True}

@@ -14,7 +14,6 @@ from src.schemas.payment import (
     OwnerPaymentResponse,
     AdminPaymentResponse,
     CreateOwnerPaymentRequest,
-    UpdateBankDataRequest,
 )
 
 router = APIRouter(prefix="/groups", tags=["payments"])
@@ -118,26 +117,3 @@ def list_owner_payments(
         )
         for p in payments
     ]
-
-
-@router.patch("/{group_id}/bank-data", status_code=200)
-def update_bank_data(
-    group_id: int,
-    body: UpdateBankDataRequest,
-    user=Depends(get_current_user),
-):
-    _require_group(group_id)
-    user_id = int(user["sub"])
-    member = group_repository.get_member(group_id, user_id)
-    if not member or member.role.lower() not in ("administrador", "admin"):
-        raise HTTPException(
-            status_code=403,
-            detail="Solo el administrador puede actualizar los datos bancarios",
-        )
-    payment_repository.update_bank_data(
-        group_id=group_id,
-        bank_alias=body.bank_alias,
-        bank_cbu=body.bank_cbu,
-        bank_account_name=body.bank_account_name,
-    )
-    return {"message": "Datos bancarios actualizados correctamente"}

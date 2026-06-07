@@ -1,5 +1,4 @@
 import re
-from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
 
@@ -87,27 +86,3 @@ class TokenResponse(BaseModel):
 class AccessTokenResponse(BaseModel):
     accessToken: str
     tokenType: str = "bearer"
-
-
-class OwnProfile(BaseModel):
-    id: int
-    email: str
-    full_name: Optional[str]
-    description: Optional[str]
-    avatar_url: Optional[str]
-    is_active: bool
-    is_blocked: bool
-    is_admin: bool
-    created_at: datetime
-    updated_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class PublicProfile(BaseModel):
-    id: int
-    full_name: Optional[str]
-    description: Optional[str]
-    avatar_url: Optional[str]
-
-    model_config = ConfigDict(from_attributes=True)

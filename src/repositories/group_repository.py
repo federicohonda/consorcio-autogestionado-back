@@ -3,7 +3,7 @@ from typing import Optional
 import secrets
 import string
 from src.database.db import get_db_cursor
-from src.models.group import Group, GroupMember, GroupWithMeta
+from src.models.group import Group, GroupMember
 from src.schemas.group import MemberResponse, MemberWithBalanceResponse
 
 
@@ -22,37 +22,6 @@ def create_group(name: str, description: Optional[str], icon: str) -> Group:
             (name, description, icon, invite_code),
         )
         return Group(**dict(cur.fetchone()))
-
-
-def find_all_groups() -> list[GroupWithMeta]:
-    with get_db_cursor() as cur:
-        cur.execute(
-            """
-            SELECT
-                g.id, g.name, g.description, g.icon, g.created_at,
-                COUNT(gm.id) AS member_count,
-                u.full_name AS admin_name
-            FROM groups g
-            LEFT JOIN group_members gm ON gm.group_id = g.id
-            LEFT JOIN group_members adm ON adm.group_id = g.id AND adm.role = 'Administrador'
-            LEFT JOIN users u ON u.id = adm.user_id
-            GROUP BY g.id, u.full_name
-            ORDER BY g.created_at DESC
-            """,
-        )
-        rows = cur.fetchall()
-        return [
-            GroupWithMeta(
-                id=r["id"],
-                name=r["name"],
-                description=r["description"],
-                icon=r["icon"],
-                member_count=r["member_count"],
-                admin_name=r["admin_name"],
-                created_at=r["created_at"],
-            )
-            for r in rows
-        ]
 
 
 def find_by_id(group_id: int) -> Optional[Group]:
@@ -212,14 +181,6 @@ def get_member(group_id: int, user_id: int) -> Optional[GroupMember]:
         )
         row = cur.fetchone()
         return GroupMember(**dict(row)) if row else None
-
-
-def remove_member(group_id: int, user_id: int) -> None:
-    with get_db_cursor() as cur:
-        cur.execute(
-            "DELETE FROM group_members WHERE group_id = %s AND user_id = %s",
-            (group_id, user_id),
-        )
 
 
 def update_member_role(group_id: int, user_id: int, new_role: str) -> None:

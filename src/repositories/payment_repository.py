@@ -164,20 +164,3 @@ def get_all_group_payments(group_id: int) -> list[AdminPaymentResponse]:
             (group_id,),
         )
         return [AdminPaymentResponse(**dict(r)) for r in cur.fetchall()]
-
-
-def update_bank_data(
-    group_id: int,
-    bank_alias: Optional[str],
-    bank_cbu: Optional[str],
-    bank_account_name: Optional[str],
-) -> None:
-    with get_db_cursor() as cur:
-        cur.execute(
-            """
-            UPDATE groups
-            SET bank_alias = %s, bank_cbu = %s, bank_account_name = %s
-            WHERE id = %s
-            """,
-            (bank_alias, bank_cbu, bank_account_name, group_id),
-        )

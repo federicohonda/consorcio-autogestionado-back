@@ -62,39 +62,6 @@ def create_expense_no_splits(
         expense = _insert_expense_base(cur, group_id, created_by_user_id, data, receipt_url)
     return expense
 
-
-def create_monthly_contribution(
-    group_id: int,
-    created_by_user_id: int,
-    description: str,
-    amount: Decimal,
-    expense_date,
-    splits: list[dict],
-) -> Expense:
-    """Creates the automatic monthly contribution expense bypassing Pydantic validation."""
-    with get_db_cursor() as cur:
-        cur.execute(
-            """
-            INSERT INTO expenses (
-                group_id, description, amount, category,
-                expense_date, division_type, receipt_url, created_by_user_id, paid_by_pozo
-            )
-            VALUES (%s, %s, %s, 'Otros', %s, 'EQUALLY', NULL, %s, FALSE)
-            RETURNING *
-            """,
-            (group_id, description, amount, expense_date, created_by_user_id),
-        )
-        expense_row = dict(cur.fetchone())
-        expense_row.setdefault('paid_by_user_id', None)
-        expense = Expense(**expense_row)
-
-        for split in splits:
-            cur.execute(
-                "INSERT INTO expense_splits (expense_id, user_id, amount) VALUES (%s, %s, %s)",
-                (expense.id, split["user_id"], split["amount"]),
-            )
-    return expense
-
 def list_expenses(group_id: int, year: int, month: int) -> list[ExpenseWithPayer]:
     with get_db_cursor() as cur:
         cur.execute(

@@ -52,11 +52,6 @@ class CreateExpenseRequest(BaseModel):
             raise ValueError(f"La suma de los pagos ({total_payments}) debe ser igual al monto total ({self.amount})")
         return self
 
-class SplitResponse(BaseModel):
-    user_id: int
-    full_name: Optional[str]
-    amount: Decimal
-
 class ExpenseResponse(BaseModel):
     id: int
     description: str

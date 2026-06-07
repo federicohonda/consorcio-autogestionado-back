@@ -146,19 +146,6 @@ def create_distribution(
         )
 
 
-def get_total_distributions(group_id: int, user_id: int) -> Decimal:
-    with get_db_cursor() as cur:
-        cur.execute(
-            """
-            SELECT COALESCE(SUM(amount), 0) AS total
-            FROM pozo_distributions
-            WHERE group_id = %s AND user_id = %s
-            """,
-            (group_id, user_id),
-        )
-        return Decimal(str(cur.fetchone()["total"]))
-
-
 def create_contribution_debts(
     group_id: int,
     member_ids: list[int],

@@ -1,16 +1,10 @@
 from datetime import datetime, timezone
-from decimal import Decimal
 from typing import Optional
-import json
-import os
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Form, UploadFile, File
-from fastapi.responses import FileResponse
-from pydantic import ValidationError
 
 from src.core.dependencies import get_current_user
 from src.core.exceptions import AppError
-from src.core.config import settings
 
 import src.repositories.group_repository as group_repository
 import src.repositories.expense_repository as expense_repository
@@ -55,26 +49,6 @@ def create_group(body: CreateGroupRequest, user=Depends(get_current_user)):
         invite_code=group.invite_code,
         admin_name=admin_name
     )
-
-@router.get("", response_model=list[GroupResponse])
-def list_groups(user=Depends(get_current_user)):
-    user_id = int(user["sub"])
-    groups = group_repository.find_all_groups()
-    result = []
-    for g in groups:
-        member = group_repository.get_member(g.id, user_id)
-        result.append(
-            GroupResponse(
-                id=g.id,
-                name=g.name,
-                description=g.description,
-                icon=g.icon,
-                member_count=g.member_count,
-                admin_name=g.admin_name,
-                your_role=member.role if member else None,
-            )
-        )
-    return result
 
 @router.get("/mine", response_model=GroupResponse)
 def get_my_group(user=Depends(get_current_user)):
@@ -121,12 +95,6 @@ def transfer_admin(group_id: int, body: TransferRoleRequest, user=Depends(get_cu
     user_id = int(user["sub"])
     _handle(group_service.transfer_admin, group_id, user_id, body.newAdminUserId)
     return {"message": "Rol de Administrador transferido correctamente"}
-
-@router.post("/{group_id}/leave", status_code=200)
-def leave_group(group_id: int, user=Depends(get_current_user)):
-    user_id = int(user["sub"])
-    _handle(group_service.leave_group, group_id, user_id)
-    return {"message": "Saliste del grupo correctamente"}
 
 @router.post("/{group_id}/expenses", status_code=201, response_model=ExpenseResponse)
 async def create_expense(
@@ -203,35 +171,6 @@ def list_expenses(
         )
         for e in expenses
     ]
-
-@router.get("/{group_id}/expenses/{expense_id}/receipt")
-def get_expense_receipt(
-    group_id: int,
-    expense_id: int,
-    user=Depends(get_current_user),
-):
-    with __import__("src.database.db", fromlist=["get_db_cursor"]).get_db_cursor() as cur:
-        cur.execute(
-            "SELECT receipt_url FROM expenses WHERE id = %s AND group_id = %s",
-            (expense_id, group_id),
-        )
-        row = cur.fetchone()
-
-    if not row:
-        raise HTTPException(status_code=404, detail="Gasto no encontrado")
-
-    receipt_url = row["receipt_url"]
-    if not receipt_url:
-        raise HTTPException(status_code=404, detail="Este gasto no tiene comprobante")
-
-    relative = receipt_url.lstrip("/")
-    parts = relative.split("/", 1)
-    file_path = os.path.join(settings.uploads_dir, parts[1] if len(parts) > 1 else parts[0])
-
-    if not os.path.isfile(file_path):
-        raise HTTPException(status_code=404, detail="Archivo de comprobante no encontrado")
-
-    return FileResponse(file_path)
 
 @router.get("/{group_id}/summary", response_model=MonthlySummaryResponse)
 def get_summary(

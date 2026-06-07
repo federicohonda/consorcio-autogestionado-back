@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, date
 from decimal import Decimal
 from typing import Optional
@@ -19,20 +19,6 @@ class Expense:
     receipt_url: Optional[str] = None
     paid_by_user_id: Optional[int] = None
     paid_by_pozo: bool = False
-
-@dataclass
-class ExpensePayment:
-    id: int
-    expense_id: int
-    user_id: int
-    amount_paid: Decimal
-
-@dataclass
-class ExpenseSplit:
-    id: int
-    expense_id: int
-    user_id: int
-    amount: Decimal
 
 @dataclass
 class ExpenseWithPayer:
