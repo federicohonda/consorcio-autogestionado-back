@@ -136,6 +136,12 @@ def get_members_with_balance(group_id: int) -> list[MemberWithBalanceResponse]:
                         FROM pozo_distributions pd
                         WHERE pd.group_id = gm.group_id AND pd.user_id = gm.user_id
                     ), 0)
+                    +
+                    COALESCE((
+                        SELECT SUM(ba.amount)
+                        FROM balance_adjustments ba
+                        WHERE ba.group_id = gm.group_id AND ba.user_id = gm.user_id
+                    ), 0)
                 ) AS net_balance
             FROM group_members gm
             JOIN users u ON u.id = gm.user_id
@@ -145,6 +151,44 @@ def get_members_with_balance(group_id: int) -> list[MemberWithBalanceResponse]:
             (group_id,),
         )
         return [MemberWithBalanceResponse(**dict(r)) for r in cur.fetchall()]
+
+
+def get_member_net_balance(group_id: int, user_id: int) -> Decimal:
+    with get_db_cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+                COALESCE((SELECT SUM(ep.amount_paid) FROM expense_payments ep JOIN expenses e ON e.id = ep.expense_id WHERE e.group_id = %s AND ep.user_id = %s), 0)
+                + COALESCE((SELECT SUM(op.amount) FROM owner_payments op WHERE op.group_id = %s AND op.user_id = %s), 0)
+                - COALESCE((SELECT SUM(es.amount) FROM expense_splits es JOIN expenses e ON e.id = es.expense_id WHERE e.group_id = %s AND es.user_id = %s), 0)
+                - COALESCE((SELECT SUM(cd.amount) FROM contribution_debts cd WHERE cd.group_id = %s AND cd.user_id = %s), 0)
+                - COALESCE((SELECT SUM(pd.amount) FROM pozo_distributions pd WHERE pd.group_id = %s AND pd.user_id = %s), 0)
+                + COALESCE((SELECT SUM(ba.amount) FROM balance_adjustments ba WHERE ba.group_id = %s AND ba.user_id = %s), 0)
+                AS net_balance
+            """,
+            (group_id, user_id) * 6,
+        )
+        row = cur.fetchone()
+        return Decimal(str(row["net_balance"]))
+
+
+def insert_balance_adjustment(group_id: int, user_id: int, amount: Decimal, description: str) -> None:
+    with get_db_cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO balance_adjustments (group_id, user_id, amount, description)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (group_id, user_id, amount, description),
+        )
+
+
+def remove_members_batch(group_id: int, user_ids: list[int]) -> None:
+    with get_db_cursor() as cur:
+        cur.execute(
+            "DELETE FROM group_members WHERE group_id = %s AND user_id = ANY(%s)",
+            (group_id, user_ids),
+        )
 
 
 def update_m2(group_id: int, m2_data: list[dict]) -> None:

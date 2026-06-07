@@ -16,7 +16,12 @@ import src.repositories.group_repository as group_repository
 import src.repositories.expense_repository as expense_repository
 import src.repositories.user_repository as user_repository
 
+from pydantic import BaseModel
 from src.schemas.group import CreateGroupRequest, GroupResponse, MemberResponse, MemberWithBalanceResponse, TransferRoleRequest, UpdateM2Request, JoinGroupRequest
+
+
+class RemoveMembersRequest(BaseModel):
+    user_ids: list[int]
 from src.schemas.expense import CreateExpenseRequest, ExpenseResponse, MonthlySummaryResponse
 
 import src.services.group_service as group_service
@@ -240,6 +245,13 @@ def get_summary(
     year = year or now.year
     month = month or now.month
     return expense_repository.get_monthly_summary(group_id, user_id, year, month)
+
+@router.delete("/{group_id}/members", status_code=200)
+def remove_members(group_id: int, body: RemoveMembersRequest, user=Depends(get_current_user)):
+    user_id = int(user["sub"])
+    _handle(group_service.remove_members, group_id, user_id, body.user_ids)
+    return {"message": "Socios eliminados correctamente"}
+
 
 @router.put("/{group_id}/m2", summary="Actualizar metros cuadrados de las unidades")
 def update_group_m2(

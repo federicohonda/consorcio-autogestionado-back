@@ -1,3 +1,4 @@
+from decimal import Decimal
 from src.core.exceptions import AppError
 from src.core.logger import logger
 from src.models.group import Group
@@ -53,6 +54,46 @@ def leave_group(group_id: int, user_id: int) -> None:
 
     group_repository.remove_member(group_id, user_id)
     logger.info(f"User {user_id} left group {group_id}")
+
+
+def remove_members(group_id: int, requesting_user_id: int, user_ids_to_remove: list[int]) -> None:
+    requester = group_repository.get_member(group_id, requesting_user_id)
+    if not requester or requester.role != "Administrador":
+        raise AppError(403, "Solo el Administrador puede eliminar socios")
+
+    if requesting_user_id in user_ids_to_remove:
+        raise AppError(400, "No podés eliminarte a vos mismo")
+
+    all_members = group_repository.get_members(group_id)
+    member_ids = {m.user_id for m in all_members}
+    for uid in user_ids_to_remove:
+        if uid not in member_ids:
+            raise AppError(404, f"El usuario {uid} no es miembro del grupo")
+
+    remaining = [m for m in all_members if m.user_id not in set(user_ids_to_remove)]
+    total_remaining_m2 = sum(m.m2 or 0 for m in remaining)
+
+    if total_remaining_m2 > 0:
+        for uid in user_ids_to_remove:
+            balance = group_repository.get_member_net_balance(group_id, uid)
+            if balance == Decimal("0"):
+                continue
+            for rem in remaining:
+                rem_m2 = rem.m2 or 0
+                if rem_m2 == 0:
+                    continue
+                proportion = Decimal(str(rem_m2)) / Decimal(str(total_remaining_m2))
+                adjustment = balance * proportion
+                removed_member = next(m for m in all_members if m.user_id == uid)
+                group_repository.insert_balance_adjustment(
+                    group_id,
+                    rem.user_id,
+                    adjustment,
+                    f"Redistribución por baja de {removed_member.full_name}",
+                )
+
+    group_repository.remove_members_batch(group_id, user_ids_to_remove)
+    logger.info(f"Members {user_ids_to_remove} removed from group {group_id} by user {requesting_user_id}")
 
 
 def transfer_admin(group_id: int, requesting_user_id: int, new_admin_user_id: int) -> None:
