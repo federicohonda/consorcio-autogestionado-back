@@ -16,3 +16,4 @@ class User:
     is_admin: bool
     created_at: datetime
     updated_at: datetime
+    recovery_code: Optional[str] = None

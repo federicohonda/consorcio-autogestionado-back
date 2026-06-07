@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from src.core.exceptions import AppError
-from src.schemas.user import RegisterRequest, LoginRequest, RefreshRequest, TokenResponse, AccessTokenResponse
-from src.services.auth_service import register_user, login_user, refresh_access_token
+from src.schemas.user import RegisterRequest, LoginRequest, RefreshRequest, TokenResponse, AccessTokenResponse, ResetPasswordRequest
+from src.services.auth_service import register_user, login_user, refresh_access_token, reset_password_with_code
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -31,3 +31,9 @@ def refresh(body: RefreshRequest):
 @router.post("/logout")
 def logout():
     return {"message": "Sesión cerrada correctamente"}
+
+
+@router.post("/reset-password", status_code=200)
+def reset_password(body: ResetPasswordRequest):
+    _handle(reset_password_with_code, body)
+    return {"message": "Contraseña actualizada correctamente"}
