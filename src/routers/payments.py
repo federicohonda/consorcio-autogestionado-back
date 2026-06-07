@@ -95,10 +95,6 @@ def list_all_payments(
     user=Depends(get_current_user),
 ):
     _require_group(group_id)
-    user_id = int(user["sub"])
-    member = group_repository.get_member(group_id, user_id)
-    if not member or member.role.lower() not in ("administrador", "admin"):
-        raise HTTPException(status_code=403, detail="Solo el administrador puede ver todos los pagos")
     return payment_repository.get_all_group_payments(group_id)
 
 
